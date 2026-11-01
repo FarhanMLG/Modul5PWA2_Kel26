@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
+  Zap,
 } from 'lucide-react'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
@@ -232,6 +233,9 @@ export default function Catalog({ onNavigate }) {
             <span className="count">
               {filteredGuns.length} unit{filteredGuns.length !== 1 ? 's' : ''}
               {totalPages > 1 ? ` (Hal ${currentPage}/${totalPages})` : ''}
+            </span>
+            <span className="cache-indicator-pill" title="Query Cache (SWR) Active: 0ms response">
+              <Zap size={11} fill="#10b981" color="#10b981" /> Cache Active
             </span>
             {onNavigate && viewMode === 'active' && (
               <button

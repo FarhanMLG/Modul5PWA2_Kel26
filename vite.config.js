@@ -24,7 +24,20 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // Only precache the critical app shell so dynamic components lazy-load on demand in Network tab
+        globPatterns: [
+          '**/*.{css,html,svg,png,webmanifest}',
+          '**/index-*.js',
+          'registerSW.js',
+        ],
+        globIgnores: [
+          '**/CreateGunPage*.js',
+          '**/EditGunPage*.js',
+          '**/EditProfilePage*.js',
+          '**/GunDetail*.js',
+          '**/ProfilePage*.js',
+          '**/FavoritesPage*.js',
+        ],
       },
     }),
   ],
