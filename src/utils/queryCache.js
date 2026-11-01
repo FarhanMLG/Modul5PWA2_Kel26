@@ -1,184 +1,162 @@
 // ---------------------------------------------------------------------------
-// queryCache.js — Stale-While-Revalidate (SWR) Query Caching Engine
-// Stores query responses across:
-//   1. In-memory Map (0ms instantaneous lookup)
-//   2. Browser Cache Storage API (window.caches -> DevTools > Application > Cache Storage)
-//   3. LocalStorage fallback
-// Emits clear diagnostic logs visible in DevTools Console & Network tab.
+// queryCache.js — High-performance in-memory + sessionStorage query cache
+// with Stale-While-Revalidate support.
+//
+// Key Concepts:
+//   - fresh window (staleTime, default 2 min): served directly from cache,
+//     NO network requests are dispatched on page/tab navigation.
+//   - stale window (between staleTime and TTL, up to 5 min): cached data is
+//     returned immediately (zero UI delay), then revalidated in the background.
+//   - expired (after TTL): cache entry is purged, requiring a fresh fetch.
+//   - sessionStorage mirror: preserves cache across browser reloads (F5) in the
+//     same session without hitting the API again.
 // ---------------------------------------------------------------------------
 
-const MEMORY_CACHE = new Map()
-const CACHE_STORAGE_NAME = 'bore-barrel-query-cache-v1'
-const CACHE_PREFIX = 'bb_cache_'
-const DEFAULT_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const DEFAULT_TTL_MS = 5 * 60 * 1000 // 5 minutes TTL
+const DEFAULT_STALE_MS = 2 * 60 * 1000 // 2 minutes staleTime
+const SESSION_STORAGE_KEY = 'bore_barrel_query_cache_v1'
 
-/**
- * Save entry to browser's official Cache Storage (DevTools > Application > Cache Storage)
- */
-const saveToBrowserCacheStorage = async (key, data) => {
-  if (typeof window === 'undefined' || !('caches' in window)) return
-  try {
-    const cache = await window.caches.open(CACHE_STORAGE_NAME)
-    const url = `/api/cache/${encodeURIComponent(key)}`
-    const response = new Response(JSON.stringify(data), {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Cache-Status': 'HIT',
-        'X-Cache-Engine': 'SWR-QueryCache',
-      },
-    })
-    await cache.put(url, response)
-  } catch (err) {
-    console.debug('[queryCache] CacheStorage write skipped:', err)
-  }
-}
+class QueryCache {
+  constructor(ttl = DEFAULT_TTL_MS, staleTime = DEFAULT_STALE_MS) {
+    this._ttl = ttl
+    this._staleTime = staleTime
+    this._store = new Map()
 
-/**
- * Retrieve cached entry from memory, localStorage, or CacheStorage.
- * @param {string} key
- * @returns {{ data: any, isStale: boolean, ageSec: number } | null}
- */
-export const getCached = (key) => {
-  const fullKey = `${CACHE_PREFIX}${key}`
-  const now = Date.now()
-
-  // 1. Check in-memory cache first (fastest, 0ms)
-  if (MEMORY_CACHE.has(fullKey)) {
-    const entry = MEMORY_CACHE.get(fullKey)
-    const isStale = now > entry.expiry
-    const ageSec = Math.round((now - entry.timestamp) / 1000)
-    return { data: entry.data, isStale, ageSec }
+    // Hydrate from sessionStorage if available
+    this._hydrateFromSession()
   }
 
-  // 2. Check localStorage fallback
-  try {
-    const raw = localStorage.getItem(fullKey)
-    if (!raw) return null
-    const entry = JSON.parse(raw)
-    const isStale = now > entry.expiry
-    const ageSec = Math.round((now - entry.timestamp) / 1000)
-    // Promote back to memory cache
-    MEMORY_CACHE.set(fullKey, entry)
-    return { data: entry.data, isStale, ageSec }
-  } catch {
-    return null
-  }
-}
-
-/**
- * Store data into cache with a TTL.
- * @param {string} key
- * @param {any} data
- * @param {number} [ttlMs=DEFAULT_TTL_MS]
- */
-export const setCached = (key, data, ttlMs = DEFAULT_TTL_MS) => {
-  const fullKey = `${CACHE_PREFIX}${key}`
-  const now = Date.now()
-  const entry = {
-    data,
-    timestamp: now,
-    expiry: now + ttlMs,
-  }
-
-  // Save to memory
-  MEMORY_CACHE.set(fullKey, entry)
-
-  // Save to localStorage
-  try {
-    localStorage.setItem(fullKey, JSON.stringify(entry))
-  } catch (err) {
-    console.warn('[queryCache] LocalStorage full, cached in memory only:', err)
-  }
-
-  // Save to browser Cache Storage (for DevTools inspection)
-  saveToBrowserCacheStorage(key, data)
-}
-
-/**
- * Invalidate a specific key or keys starting with a prefix.
- * @param {string} keyPrefix
- */
-export const invalidateCache = (keyPrefix = '') => {
-  const fullPrefix = `${CACHE_PREFIX}${keyPrefix}`
-
-  // Memory
-  for (const k of Array.from(MEMORY_CACHE.keys())) {
-    if (k.startsWith(fullPrefix)) {
-      MEMORY_CACHE.delete(k)
+  _hydrateFromSession() {
+    if (typeof window === 'undefined' || !window.sessionStorage) return
+    try {
+      const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      const now = Date.now()
+      for (const [key, entry] of Object.entries(parsed)) {
+        if (entry && entry.expiresAt > now) {
+          this._store.set(key, entry)
+        }
+      }
+    } catch {
+      // Ignore sessionStorage parsing errors
     }
   }
 
-  // LocalStorage
-  try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i)
-      if (k && k.startsWith(fullPrefix)) {
-        localStorage.removeItem(k)
+  _persistToSession() {
+    if (typeof window === 'undefined' || !window.sessionStorage) return
+    try {
+      const serialized = {}
+      const now = Date.now()
+      for (const [key, entry] of this._store.entries()) {
+        if (entry && entry.expiresAt > now) {
+          serialized[key] = entry
+        }
+      }
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(serialized))
+    } catch {
+      // Ignore quota exceeded or storage disabled
+    }
+  }
+
+  /**
+   * Deterministic cache key generator.
+   */
+  key(namespace, params = {}) {
+    const sorted = Object.keys(params || {})
+      .sort()
+      .reduce((acc, k) => {
+        acc[k] = params[k]
+        return acc
+      }, {})
+    return `${namespace}:${JSON.stringify(sorted)}`
+  }
+
+  /**
+   * Return the cached data payload if not expired.
+   */
+  get(cacheKey) {
+    const entry = this._store.get(cacheKey)
+    if (!entry) return undefined
+    if (Date.now() > entry.expiresAt) {
+      this._store.delete(cacheKey)
+      this._persistToSession()
+      return undefined
+    }
+    return entry.data
+  }
+
+  /**
+   * Check if a cache entry is fresh (within staleTime).
+   * When fresh, callers should NOT dispatch any network requests.
+   */
+  isFresh(cacheKey) {
+    const entry = this._store.get(cacheKey)
+    if (!entry) return false
+    const now = Date.now()
+    if (now > entry.expiresAt) {
+      this._store.delete(cacheKey)
+      return false
+    }
+    const age = now - entry.cachedAt
+    return age < (entry.staleTime || this._staleTime)
+  }
+
+  /**
+   * Check if a cache entry exists and is still valid (fresh OR stale, but not expired).
+   */
+  has(cacheKey) {
+    return this.get(cacheKey) !== undefined
+  }
+
+  /**
+   * Store data in cache with TTL and staleTime.
+   */
+  set(cacheKey, data, options = {}) {
+    const ttl = options.ttl || this._ttl
+    const staleTime = options.staleTime || this._staleTime
+    const now = Date.now()
+
+    this._store.set(cacheKey, {
+      data,
+      cachedAt: now,
+      expiresAt: now + ttl,
+      staleTime,
+    })
+
+    this._persistToSession()
+    console.log(`%c💾 [QueryCache STORE]`, 'color: #3498db; font-weight: bold;', `Data disimpan ke cache: ${cacheKey}`)
+  }
+
+  /**
+   * Invalidate entries by prefix (e.g. 'guns', 'gun') or all entries if omitted.
+   */
+  invalidate(prefix = '') {
+    if (!prefix) {
+      this._store.clear()
+    } else {
+      for (const key of Array.from(this._store.keys())) {
+        if (key.startsWith(prefix)) {
+          this._store.delete(key)
+        }
       }
     }
-  } catch {
-    /* ignore */
+    this._persistToSession()
+    console.log(`%c🗑️ [QueryCache INVALIDATE]`, 'color: #e74c3c; font-weight: bold;', `Cache dibersihkan: ${prefix || 'SEMUA'}`)
   }
 
-  console.log(
-    `%c🔄 [QUERY CACHE INVALIDATED] Prefix: "${keyPrefix || 'ALL'}" | Stale entries purged.`,
-    'color: #f43f5e; font-weight: bold; background: #4c0519; padding: 2px 6px; border-radius: 4px;',
-  )
-}
-
-/**
- * Execute a query with Stale-While-Revalidate caching.
- * @param {string} key - Unique cache key
- * @param {Function} fetcher - Async function returning data
- * @param {Object} [options]
- * @param {number} [options.ttlMs]
- * @param {Function} [options.onSuccess] - Callback when fresh data arrives
- * @returns {Promise<{ data: any, fromCache: boolean, isStale?: boolean }>}
- */
-export const swrQuery = async (key, fetcher, options = {}) => {
-  const { ttlMs = DEFAULT_TTL_MS, onSuccess } = options
-  const cached = getCached(key)
-
-  if (cached) {
-    console.log(
-      `%c🟢 [QUERY CACHE HIT] Key: "${key}" | Age: ${cached.ageSec}s | Status: ${cached.isStale ? 'STALE (Revalidating)' : 'FRESH'} | ⚡ Network fetch skipped!`,
-      'color: #10b981; font-weight: bold; background: #064e3b; padding: 3px 8px; border-radius: 4px;',
-    )
-
-    // If cache is stale, revalidate in background
-    if (cached.isStale) {
-      console.log(
-        `%c⚡ [QUERY CACHE SWR] Background revalidating key: "${key}"...`,
-        'color: #f59e0b; font-weight: bold; background: #451a03; padding: 2px 6px; border-radius: 4px;',
-      )
-      fetcher()
-        .then((fresh) => {
-          if (fresh) {
-            setCached(key, fresh, ttlMs)
-            console.log(
-              `%c✨ [QUERY CACHE SWR COMPLETE] Key: "${key}" updated with fresh server data.`,
-              'color: #10b981; font-weight: bold; background: #064e3b; padding: 2px 6px; border-radius: 4px;',
-            )
-            if (onSuccess) onSuccess(fresh)
-          }
-        })
-        .catch((err) => {
-          console.warn(`[queryCache] Background refresh failed for ${key}:`, err)
-        })
+  /**
+   * Total number of valid cached entries.
+   */
+  get size() {
+    let count = 0
+    const now = Date.now()
+    for (const entry of this._store.values()) {
+      if (now <= entry.expiresAt) count++
     }
-
-    return { data: cached.data, fromCache: true, isStale: cached.isStale }
+    return count
   }
-
-  // Not in cache, fetch immediately (Cache MISS)
-  console.log(
-    `%c🔵 [QUERY CACHE MISS] Key: "${key}" not in cache -> Fetching from network...`,
-    'color: #38bdf8; font-weight: bold; background: #0c4a6e; padding: 3px 8px; border-radius: 4px;',
-  )
-
-  const fresh = await fetcher()
-  setCached(key, fresh, ttlMs)
-  if (onSuccess) onSuccess(fresh)
-
-  return { data: fresh, fromCache: false, isStale: false }
 }
+
+// Global singleton
+export const queryCache = new QueryCache()
