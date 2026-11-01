@@ -4,6 +4,7 @@ import { useFavorites } from '../hooks/useFavorites'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
 import GunCard from '../components/gun/GunCard'
+import { isGunDeleted } from '../utils/localGunStorage'
 
 /**
  * FavoritesPage — Displays user's shortlisted / favorited weapons.
@@ -37,12 +38,13 @@ export default function FavoritesPage({ onSelectGun, onNavigateCatalog }) {
 
   // Resolve favorited products
   const favoriteItems = useMemo(() => {
-    // 1. If backend returned full objects in favorites array:
     const resolved = []
     const seen = new Set()
 
     favorites.forEach((fav) => {
       const id = fav.id || fav.recipe_id || fav.gun_id
+      if (isGunDeleted(id)) return // Skip deleted guns
+
       const match = allKnownGuns.get(id) || allKnownGuns.get(fav.name) || (fav.name ? fav : null)
       if (match && !seen.has(match.id || match.name)) {
         seen.add(match.id || match.name)
@@ -133,5 +135,3 @@ export default function FavoritesPage({ onSelectGun, onNavigateCatalog }) {
     </div>
   )
 }
-
-

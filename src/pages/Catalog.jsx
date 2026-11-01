@@ -19,6 +19,7 @@ import AdvancedFilter from '../components/common/AdvancedFilter'
 import ConfirmModal from '../components/modals/ConfirmModal'
 import gunService from '../services/gunService'
 import { isItemArchived } from '../utils/archiveStorage'
+import { mergeAllGuns } from '../utils/localGunStorage'
 import {
   matchesSearch,
   matchesCategory,
@@ -44,7 +45,7 @@ export default function Catalog({ onNavigate }) {
     setTimeout(() => setActionNotice(''), 3000)
   }
 
-  // Decide data source with archive status resolution
+  // Decide data source with archive status resolution and local persistence
   const rawGuns = useMemo(() => {
     let source = apiGuns
     if (useLocal || (error && apiGuns.length === 0)) {
@@ -58,8 +59,8 @@ export default function Catalog({ onNavigate }) {
         }
       })
     }
-    // Ensure all have is_archived resolved
-    return source.map((g) => ({
+    const merged = mergeAllGuns(source)
+    return merged.map((g) => ({
       ...g,
       is_archived: Boolean(g.is_archived || isItemArchived(g.id)),
     }))
