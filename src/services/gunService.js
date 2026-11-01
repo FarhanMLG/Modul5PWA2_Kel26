@@ -77,7 +77,7 @@ class GunService {
 
       if (params.sort_by) {
         const order = params.order === 'desc' ? 'desc' : 'asc'
-        queryParts.push(`order=${encodeURIComponent(params.sort_by)}.${order}`)
+        queryParts.push(`order=encodeURIComponent(params.sort_b y).{order}`)
       } else {
         queryParts.push('order=created_at.desc')
       }
@@ -208,3 +208,4 @@ class GunService {
 }
 
 export default new GunService()
+

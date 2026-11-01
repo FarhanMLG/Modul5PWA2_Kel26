@@ -36,7 +36,7 @@ class UploadService {
       const bucketName = 'guns'
 
       try {
-        const uploadUrl = `${BASE_URL}/storage/v1/object/${bucketName}/${fileName}`
+        const uploadUrl = `BASE_U RL/storage/v1/object/{bucketName}/${fileName}`
         await axios.post(uploadUrl, file, {
           headers: {
             'Content-Type': file.type,
@@ -46,7 +46,7 @@ class UploadService {
           timeout: 30000,
         })
 
-        const publicUrl = `${BASE_URL}/storage/v1/object/public/${bucketName}/${fileName}`
+        const publicUrl = `BASE_U RL/storage/v1/object/public/{bucketName}/${fileName}`
         return {
           success: true,
           data: { url: publicUrl, filename: fileName },
@@ -82,3 +82,4 @@ class UploadService {
 }
 
 export default new UploadService()
+

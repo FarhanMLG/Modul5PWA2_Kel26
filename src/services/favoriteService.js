@@ -51,13 +51,13 @@ class FavoriteService {
 
       // Check if already favorited
       const existing = await apiClient.get(
-        `/rest/v1/favorites?product_id=eq.${targetId}&user_id=eq.${userId}&select=*`,
+        `/rest/v1/favorites?product_id=eq.targetId&user_i d=eq.{userId}&select=*`,
       )
 
       if (Array.isArray(existing) && existing.length > 0) {
         // Remove from favorites
         await apiClient.delete(
-          `/rest/v1/favorites?product_id=eq.${targetId}&user_id=eq.${userId}`,
+          `/rest/v1/favorites?product_id=eq.targetId&user_i d=eq.{userId}`,
         )
         return { success: true, data: { is_favorited: false } }
       } else {
@@ -76,3 +76,4 @@ class FavoriteService {
 }
 
 export default new FavoriteService()
+

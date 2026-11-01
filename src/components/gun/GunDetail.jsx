@@ -144,7 +144,7 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
                 type="button"
                 className="star-btn"
                 onClick={() => setRating(n)}
-                aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                aria-label={`nstar{n > 1 ? 's' : ''}`}
               >
                 <Star
                   size={22}
@@ -216,3 +216,4 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete }) {
     </div>
   )
 }
+
