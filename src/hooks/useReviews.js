@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import reviewService from '../services/reviewService'
+import { getUserIdentifier } from '../services/userService'
 
 // ---------------------------------------------------------------------------
-// useReviews — fetch reviews for a specific product.
+// useReviews — fetch reviews for a specific product with full CRUD + vote actions.
 // ---------------------------------------------------------------------------
 
 export function useReviews(gunId) {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const userIdentifier = getUserIdentifier()
 
   const fetchReviews = useCallback(async () => {
     if (!gunId) {
@@ -19,7 +21,7 @@ export function useReviews(gunId) {
       setLoading(true)
       setError(null)
 
-      const response = await reviewService.getReviews(gunId)
+      const response = await reviewService.getReviews(gunId, userIdentifier)
 
       if (response.success) {
         setReviews(response.data || [])
@@ -32,13 +34,60 @@ export function useReviews(gunId) {
     } finally {
       setLoading(false)
     }
-  }, [gunId])
+  }, [gunId, userIdentifier])
 
   useEffect(() => {
     fetchReviews()
   }, [fetchReviews])
 
-  return { reviews, loading, error, refetch: fetchReviews }
+  const voteReview = (reviewId, voteType) => {
+    const res = reviewService.voteReview(reviewId, voteType, userIdentifier)
+    if (res) {
+      setReviews((prev) =>
+        prev.map((r) =>
+          String(r.id) === String(reviewId)
+            ? { ...r, thumbs_up: res.thumbs_up, thumbs_down: res.thumbs_down, user_vote: res.user_vote }
+            : r,
+        ),
+      )
+    }
+  }
+
+  const updateReview = async (reviewId, updateData) => {
+    try {
+      const res = await reviewService.updateReview(gunId, reviewId, updateData)
+      if (res.success) {
+        await fetchReviews()
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  const deleteReview = async (reviewId) => {
+    try {
+      const res = await reviewService.deleteReview(gunId, reviewId)
+      if (res.success) {
+        setReviews((prev) => prev.filter((r) => String(r.id) !== String(reviewId)))
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  return {
+    reviews,
+    loading,
+    error,
+    refetch: fetchReviews,
+    voteReview,
+    updateReview,
+    deleteReview,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -75,4 +124,3 @@ export function useCreateReview() {
 
   return { createReview, loading, error, success }
 }
-

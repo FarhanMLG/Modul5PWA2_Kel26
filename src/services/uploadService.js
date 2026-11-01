@@ -7,7 +7,7 @@ import { BASE_URL, SUPABASE_KEY, IS_SUPABASE } from '../config/api'
 // standard REST API (/api/v1/upload), with client-side fallback.
 // ---------------------------------------------------------------------------
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml']
 const MAX_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
 
 class UploadService {
@@ -22,7 +22,7 @@ class UploadService {
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
       throw new Error(
-        'Invalid file type. Allowed formats: .jpg, .jpeg, .png, .webp',
+        'Invalid file type. Allowed formats: .jpg, .jpeg, .png, .webp, .svg',
       )
     }
     if (file.size > MAX_SIZE_BYTES) {
@@ -36,7 +36,7 @@ class UploadService {
       const bucketName = 'guns'
 
       try {
-        const uploadUrl = `BASE_U RL/storage/v1/object/{bucketName}/${fileName}`
+        const uploadUrl = `${BASE_URL}/storage/v1/object/${bucketName}/${fileName}`
         await axios.post(uploadUrl, file, {
           headers: {
             'Content-Type': file.type,
@@ -46,7 +46,7 @@ class UploadService {
           timeout: 30000,
         })
 
-        const publicUrl = `BASE_U RL/storage/v1/object/public/{bucketName}/${fileName}`
+        const publicUrl = `${BASE_URL}/storage/v1/object/public/${bucketName}/${fileName}`
         return {
           success: true,
           data: { url: publicUrl, filename: fileName },
@@ -69,17 +69,42 @@ class UploadService {
     }
 
     // --- University API flow (/api/v1/upload) ---
-    const formData = new FormData()
-    formData.append('image', file)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
 
-    const response = await axios.post(`${BASE_URL}/api/v1/upload`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 30000,
-    })
+      const response = await axios.post(`${BASE_URL}/api/v1/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      })
 
-    return response.data
+      return response.data
+    } catch {
+      // Fallback to base64 data URL if university backend upload is offline
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      return {
+        success: true,
+        data: { url: dataUrl, filename: file.name },
+      }
+    }
+  }
+
+  /**
+   * Upload multiple images concurrently.
+   * @param {FileList|File[]} files
+   * @returns {Promise<Array<{ url: string, filename: string }>>}
+   */
+  async uploadMultipleImages(files) {
+    const list = Array.from(files)
+    const results = await Promise.all(list.map((file) => this.uploadImage(file)))
+    return results.map((res) => res.data?.url || res.url).filter(Boolean)
   }
 }
 
 export default new UploadService()
-

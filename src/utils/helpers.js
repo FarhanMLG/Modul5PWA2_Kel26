@@ -81,3 +81,35 @@ export const averageRating = (reviews) => {
   return Math.round((sum / reviews.length) * 10) / 10
 }
 
+/**
+ * Generate unique share link for a weapon / hardware item (Challenge #2).
+ */
+export const generateShareUrl = (gunId) => {
+  if (typeof window === 'undefined') return ''
+  const origin = window.location.origin
+  return `${origin}/?gun=${encodeURIComponent(gunId)}`
+}
+
+/**
+ * Generate direct WhatsApp chat URL with pre-filled message (Challenge #8).
+ * @param {Object} gun
+ * @param {string} [phone='6281234567890']
+ */
+export const getWhatsAppUrl = (gun, phone = '6281234567890') => {
+  if (!gun) return ''
+  const cleanPhone = phone.replace(/[^0-9]/g, '')
+  const name = gun.name || 'Hardware Unit'
+  const type = gun.type || gun.category || 'Firearm'
+  const caliber = gun.caliber || 'Standard'
+  const price = formatPrice(gun.price ?? gun.cook_time ?? 0)
+
+  const message = `Halo Bore & Barrel (Armory), saya tertarik untuk memesan/bertanya tentang unit:
+*${name}*
+- Tipe: ${type}
+- Kaliber: ${caliber}
+- Harga: ${price}
+
+Apakah unit ini masih tersedia di armory? Terima kasih.`
+
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+}

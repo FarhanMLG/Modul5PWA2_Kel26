@@ -20,10 +20,10 @@ const TS_SUFFIX = '_ts'
  */
 export const saveDraft = (draftData, draftId = 'create') => {
   try {
-    const key = `PREFIX{draftId}`
+    const key = `${PREFIX}${draftId}`
     const ts = new Date().toISOString()
     localStorage.setItem(key, JSON.stringify({ ...draftData, savedAt: ts }))
-    localStorage.setItem(`key{TS_SUFFIX}`, ts)
+    localStorage.setItem(`${key}${TS_SUFFIX}`, ts)
     return true
   } catch {
     return false
@@ -36,7 +36,7 @@ export const saveDraft = (draftData, draftId = 'create') => {
  */
 export const loadDraft = (draftId = 'create') => {
   try {
-    const raw = localStorage.getItem(`PREFIX{draftId}`)
+    const raw = localStorage.getItem(`${PREFIX}${draftId}`)
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
@@ -48,9 +48,9 @@ export const loadDraft = (draftId = 'create') => {
  */
 export const deleteDraft = (draftId = 'create') => {
   try {
-    const key = `PREFIX{draftId}`
+    const key = `${PREFIX}${draftId}`
     localStorage.removeItem(key)
-    localStorage.removeItem(`key{TS_SUFFIX}`)
+    localStorage.removeItem(`${key}${TS_SUFFIX}`)
     return true
   } catch {
     return false
@@ -62,7 +62,7 @@ export const deleteDraft = (draftId = 'create') => {
  */
 export const hasDraft = (draftId = 'create') => {
   try {
-    return localStorage.getItem(`PREFIX{draftId}`) !== null
+    return localStorage.getItem(`${PREFIX}${draftId}`) !== null
   } catch {
     return false
   }
@@ -73,7 +73,7 @@ export const hasDraft = (draftId = 'create') => {
  */
 export const getDraftTimestamp = (draftId = 'create') => {
   try {
-    return localStorage.getItem(`PREFIX{draftId}${TS_SUFFIX}`)
+    return localStorage.getItem(`${PREFIX}${draftId}${TS_SUFFIX}`)
   } catch {
     return null
   }
@@ -91,7 +91,7 @@ export const formatDraftTime = (timestamp) => {
   const hrs = Math.floor(mins / 60)
   if (hrs < 24) return `${hrs} hr ago`
   const days = Math.floor(hrs / 24)
-  if (days < 7) return `daysday{days > 1 ? 's' : ''} ago`
+  if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`
   return new Date(timestamp).toLocaleDateString()
 }
 
@@ -109,9 +109,31 @@ export const getAllDraftIds = () => {
 }
 
 /**
+ * Return all full draft objects with metadata.
+ */
+export const getAllDrafts = () => {
+  try {
+    const ids = getAllDraftIds()
+    return ids.map((id) => {
+      const data = loadDraft(id)
+      const timestamp = getDraftTimestamp(id)
+      return {
+        id,
+        type: id === 'create' ? 'create' : 'edit',
+        name: data?.formData?.name || (id === 'create' ? 'New Weapon Draft' : `Edit Item #${id}`),
+        timestamp,
+        formattedTime: formatDraftTime(timestamp),
+        data,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+/**
  * Remove every gun draft from storage.
  */
 export const clearAllDrafts = () => {
   getAllDraftIds().forEach(deleteDraft)
 }
-

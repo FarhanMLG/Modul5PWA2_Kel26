@@ -1,5 +1,16 @@
-import { useState, useMemo } from 'react'
-import { RefreshCw, Plus, Loader, AlertCircle, PackageOpen } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import {
+  RefreshCw,
+  Plus,
+  Loader,
+  AlertCircle,
+  PackageOpen,
+  Archive,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+} from 'lucide-react'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
 import GunCard from '../components/gun/GunCard'
@@ -7,6 +18,7 @@ import GunDetail from '../components/gun/GunDetail'
 import AdvancedFilter from '../components/common/AdvancedFilter'
 import ConfirmModal from '../components/modals/ConfirmModal'
 import gunService from '../services/gunService'
+import { isItemArchived } from '../utils/archiveStorage'
 import {
   matchesSearch,
   matchesCategory,
@@ -15,27 +27,55 @@ import {
 } from '../utils/helpers'
 
 /**
- * Catalog page — the main product listing.
- *
- * Data source priority:
- *   1. Live API via useGuns()
- *   2. Local static array (GUNS_LOCAL) when the API is unreachable
- *
- * Features: search, category filter, sort, CRUD actions, detail modal.
+ * Catalog page with Pagination, Soft Delete / Archive tabs,
+ * and Share / WhatsApp integration.
  */
 export default function Catalog({ onNavigate }) {
   // ---- API data ----
-  const { guns: apiGuns, loading, error, refetch } = useGuns({ limit: 50 })
+  const { guns: apiGuns, loading, error, refetch } = useGuns({ limit: 100 })
   const [useLocal, setUseLocal] = useState(false)
 
-  // Decide data source
+  // View mode: 'active' | 'archived' (Challenge #6)
+  const [viewMode, setViewMode] = useState('active')
+  const [actionNotice, setActionNotice] = useState('')
+
+  const showNotice = (msg) => {
+    setActionNotice(msg)
+    setTimeout(() => setActionNotice(''), 3000)
+  }
+
+  // Decide data source with archive status resolution
   const rawGuns = useMemo(() => {
+    let source = apiGuns
     if (useLocal || (error && apiGuns.length === 0)) {
-      // Enrich local data with synthetic ids so FavoriteButton and detail work
-      return GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` }))
+      source = GUNS_LOCAL.map((g, i) => {
+        const id = g.id || `local-${i}`
+        return {
+          ...g,
+          id,
+          images: [g.image || '/guns/pistol.svg'],
+          is_archived: isItemArchived(id),
+        }
+      })
     }
-    return apiGuns
+    // Ensure all have is_archived resolved
+    return source.map((g) => ({
+      ...g,
+      is_archived: Boolean(g.is_archived || isItemArchived(g.id)),
+    }))
   }, [apiGuns, error, useLocal])
+
+  // Split into active and archived counts
+  const activeCount = useMemo(() => rawGuns.filter((g) => !g.is_archived).length, [rawGuns])
+  const archivedCount = useMemo(() => rawGuns.filter((g) => g.is_archived).length, [rawGuns])
+
+  // Filter guns based on active vs archive view
+  const currentScopedGuns = useMemo(() => {
+    if (viewMode === 'archived') {
+      return rawGuns.filter((g) => g.is_archived)
+    }
+    return rawGuns.filter((g) => !g.is_archived)
+  }, [rawGuns, viewMode])
 
   // ---- filters / sort ----
   const [search, setSearch] = useState('')
@@ -43,51 +83,108 @@ export default function Catalog({ onNavigate }) {
   const [sortKey, setSortKey] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
 
-  const categories = useMemo(() => extractCategories(rawGuns), [rawGuns])
+  // ---- Pagination state (Challenge #1) ----
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 6 // 6 items per page
+
+  // Reset to page 1 whenever filters or view mode change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, activeCategory, sortKey, sortOrder, viewMode])
+
+  const categories = useMemo(() => extractCategories(currentScopedGuns), [currentScopedGuns])
 
   const filteredGuns = useMemo(() => {
-    let result = rawGuns.filter(
+    let result = currentScopedGuns.filter(
       (g) => matchesSearch(g, search) && matchesCategory(g, activeCategory),
     )
     return sortItems(result, sortKey, sortOrder)
-  }, [rawGuns, search, activeCategory, sortKey, sortOrder])
+  }, [currentScopedGuns, search, activeCategory, sortKey, sortOrder])
+
+  // Calculate Paginated items (Challenge #1)
+  const totalItems = filteredGuns.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  const paginatedGuns = useMemo(() => {
+    const startIdx = (currentPage - 1) * pageSize
+    return filteredGuns.slice(startIdx, startIdx + pageSize)
+  }, [filteredGuns, currentPage, pageSize])
 
   // ---- detail view ----
   const [selectedGun, setSelectedGun] = useState(null)
 
-  // ---- delete ----
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState('')
+  // ---- modal confirmation actions ----
+  const [confirmTarget, setConfirmTarget] = useState(null)
+  const [confirmAction, setConfirmAction] = useState('archive') // 'archive' | 'restore' | 'delete'
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return
+  // Handle Archive / Soft Delete (Challenge #6)
+  const handleArchive = async (gun) => {
     try {
-      setDeleting(true)
-      setDeleteError('')
-      await gunService.deleteGun(deleteTarget.id)
-      setDeleteTarget(null)
+      setIsProcessing(true)
+      await gunService.archiveGun(gun.id)
+      setConfirmTarget(null)
       refetch()
-    } catch (err) {
-      setDeleteError(err.message || 'Failed to delete.')
+      showNotice(`"${gun.name}" dipindahkan ke Arsip.`)
+    } catch {
+      alert('Gagal mengarsipkan unit.')
     } finally {
-      setDeleting(false)
+      setIsProcessing(false)
     }
   }
 
-  // ---- If viewing a single product detail ----
+  // Handle Restore from Archive (Challenge #6)
+  const handleRestore = async (gun) => {
+    try {
+      setIsProcessing(true)
+      await gunService.restoreGun(gun.id)
+      setConfirmTarget(null)
+      refetch()
+      showNotice(`"${gun.name}" berhasil dipulihkan ke stok aktif.`)
+    } catch {
+      alert('Gagal memulihkan unit.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Handle Permanent Delete (Challenge #6)
+  const handlePermanentDelete = async (gun) => {
+    try {
+      setIsProcessing(true)
+      await gunService.deleteGun(gun.id)
+      setConfirmTarget(null)
+      refetch()
+      showNotice(`"${gun.name}" berhasil dihapus secara permanen.`)
+    } catch {
+      alert('Gagal menghapus unit secara permanen.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // If viewing a single product detail
   if (selectedGun) {
     return (
       <GunDetail
         gun={selectedGun}
         onBack={() => setSelectedGun(null)}
         onEdit={(g) => onNavigate && onNavigate('Edit', g)}
-        onDelete={(g) => { setSelectedGun(null); setDeleteTarget(g) }}
+        onArchive={async (g) => {
+          await handleArchive(g)
+          setSelectedGun(null)
+        }}
+        onRestore={async (g) => {
+          await handleRestore(g)
+          setSelectedGun(null)
+        }}
+        onDelete={(g) => {
+          setConfirmAction('delete')
+          setConfirmTarget(g)
+        }}
       />
     )
   }
 
-  // ---- Main catalog view ----
   return (
     <>
       <section className="masthead">
@@ -98,20 +195,50 @@ export default function Catalog({ onNavigate }) {
         </p>
       </section>
 
+      {actionNotice && (
+        <div className="toast toast--success" role="status">
+          <CheckCircle2 size={16} /> {actionNotice}
+        </div>
+      )}
+
       <section>
+        {/* View Mode Switcher: Active Stock vs Archive (Challenge #6) */}
+        <div className="catalog-tabs-bar">
+          <button
+            type="button"
+            className={`catalog-tab-btn ${viewMode === 'active' ? 'catalog-tab-btn--active' : ''}`}
+            onClick={() => setViewMode('active')}
+          >
+            <ShieldCheck size={16} />
+            <span>Stok Aktif</span>
+            <span className="tab-pill">{activeCount}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`catalog-tab-btn ${viewMode === 'archived' ? 'catalog-tab-btn--active' : ''}`}
+            onClick={() => setViewMode('archived')}
+          >
+            <Archive size={16} />
+            <span>Arsip / Sampah</span>
+            <span className="tab-pill tab-pill--archived">{archivedCount}</span>
+          </button>
+        </div>
+
         <div className="list-head">
-          <h2>Current stock</h2>
+          <h2>{viewMode === 'active' ? 'Current stock' : 'Archived hardware'}</h2>
           <div className="list-head-right">
             <span className="count">
-              {filteredGuns.length} piece{filteredGuns.length !== 1 ? 's' : ''}
+              {filteredGuns.length} unit{filteredGuns.length !== 1 ? 's' : ''}
+              {totalPages > 1 ? ` (Hal ${currentPage}/${totalPages})` : ''}
             </span>
-            {onNavigate && (
+            {onNavigate && viewMode === 'active' && (
               <button
                 type="button"
                 className="btn btn--primary btn--sm"
                 onClick={() => onNavigate('Create')}
               >
-                <Plus size={16} /> Add
+                <Plus size={16} /> Add Hardware
               </button>
             )}
           </div>
@@ -126,7 +253,10 @@ export default function Catalog({ onNavigate }) {
           onCategory={setActiveCategory}
           sortKey={sortKey}
           sortOrder={sortOrder}
-          onSort={({ key, order }) => { setSortKey(key); setSortOrder(order) }}
+          onSort={({ key, order }) => {
+            setSortKey(key)
+            setSortOrder(order)
+          }}
         />
 
         {/* States */}
@@ -159,23 +289,88 @@ export default function Catalog({ onNavigate }) {
         {!loading && filteredGuns.length === 0 && !error && (
           <div className="state-box">
             <PackageOpen size={28} />
-            <p>No products match your search.</p>
+            <p>
+              {viewMode === 'archived'
+                ? 'Tidak ada unit yang diarsipkan.'
+                : 'No products match your search or filter criteria.'}
+            </p>
           </div>
         )}
 
-        {/* Product grid */}
-        {filteredGuns.length > 0 && (
+        {/* Product Grid (Paginated items) */}
+        {paginatedGuns.length > 0 && (
           <ul className="stock">
-            {filteredGuns.map((gun) => (
+            {paginatedGuns.map((gun) => (
               <GunCard
                 key={gun.id || gun.name}
                 gun={gun}
                 onSelect={setSelectedGun}
                 onEdit={onNavigate ? (g) => onNavigate('Edit', g) : undefined}
-                onDelete={setDeleteTarget}
+                onArchive={(g) => {
+                  setConfirmAction('archive')
+                  setConfirmTarget(g)
+                }}
+                onRestore={(g) => {
+                  setConfirmAction('restore')
+                  setConfirmTarget(g)
+                }}
+                onDelete={(g) => {
+                  setConfirmAction('delete')
+                  setConfirmTarget(g)
+                }}
+                isArchivedView={viewMode === 'archived'}
               />
             ))}
           </ul>
+        )}
+
+        {/* Pagination Controls (Challenge #1) */}
+        {totalPages > 1 && (
+          <nav className="pagination" aria-label="Catalog pagination">
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage <= 1}
+              onClick={() => {
+                setCurrentPage((p) => Math.max(1, p - 1))
+                window.scrollTo({ top: 300, behavior: 'smooth' })
+              }}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={16} /> Prev
+            </button>
+
+            <div className="pagination-pages">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  className={`pagination-num ${pageNum === currentPage ? 'pagination-num--active' : ''}`}
+                  onClick={() => {
+                    setCurrentPage(pageNum)
+                    window.scrollTo({ top: 300, behavior: 'smooth' })
+                  }}
+                  aria-label={`Go to page ${pageNum}`}
+                  aria-current={pageNum === currentPage ? 'page' : undefined}
+                >
+                  {pageNum}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => {
+                setCurrentPage((p) => Math.min(totalPages, p + 1))
+                window.scrollTo({ top: 300, behavior: 'smooth' })
+              }}
+              aria-label="Next page"
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </nav>
         )}
 
         {useLocal && (
@@ -184,7 +379,10 @@ export default function Catalog({ onNavigate }) {
             <button
               type="button"
               className="link-btn"
-              onClick={() => { setUseLocal(false); refetch() }}
+              onClick={() => {
+                setUseLocal(false)
+                refetch()
+              }}
             >
               Retry server
             </button>
@@ -192,22 +390,40 @@ export default function Catalog({ onNavigate }) {
         )}
       </section>
 
-      {/* Delete confirmation */}
+      {/* Confirmation Modal for Archive, Restore, and Delete */}
       <ConfirmModal
-        open={!!deleteTarget}
-        title="Delete Product"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        danger
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => { setDeleteTarget(null); setDeleteError('') }}
+        open={Boolean(confirmTarget)}
+        title={
+          confirmAction === 'archive'
+            ? 'Arsipkan Hardware'
+            : confirmAction === 'restore'
+            ? 'Pulihkan Hardware'
+            : 'Hapus Permanen Hardware'
+        }
+        message={
+          confirmAction === 'archive'
+            ? `Pindahkan "${confirmTarget?.name}" ke folder Arsip? Unit tidak akan tampil di katalog aktif.`
+            : confirmAction === 'restore'
+            ? `Kembalikan "${confirmTarget?.name}" ke stok katalog aktif?`
+            : `Hapus "${confirmTarget?.name}" secara permanen? Tindakan ini tidak dapat dibatalkan.`
+        }
+        confirmLabel={
+          confirmAction === 'archive'
+            ? 'Arsipkan'
+            : confirmAction === 'restore'
+            ? 'Pulihkan'
+            : 'Hapus Permanen'
+        }
+        danger={confirmAction === 'delete'}
+        loading={isProcessing}
+        onConfirm={() => {
+          if (!confirmTarget) return
+          if (confirmAction === 'archive') handleArchive(confirmTarget)
+          else if (confirmAction === 'restore') handleRestore(confirmTarget)
+          else handlePermanentDelete(confirmTarget)
+        }}
+        onCancel={() => setConfirmTarget(null)}
       />
-      {deleteError && (
-        <div className="toast toast--error">{deleteError}</div>
-      )}
     </>
   )
 }
-
-

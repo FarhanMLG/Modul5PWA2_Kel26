@@ -1518,3 +1518,675 @@
     transform: translateY(0);
   }
 }
+
+/* ==========================================================================
+   DAY 2 CHALLENGES STYLES (Pagination, Multi-Photo, WA, Voting, Drafts, Tabs)
+   ========================================================================== */
+
+/* 1. Pagination Styles (Challenge #1) */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 36px 0 20px;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: var(--brass);
+  background: #ffffff;
+  color: var(--brass);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-num {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.pagination-num:hover:not(.pagination-num--active) {
+  border-color: var(--brass);
+  background: #ffffff;
+}
+
+.pagination-num--active {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #ffffff;
+}
+
+/* 2. Catalog Tabs (Stok Aktif vs Arsip - Challenge #6) */
+.catalog-tabs-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.catalog-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--steel);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.catalog-tab-btn:hover {
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.catalog-tab-btn--active {
+  color: var(--ink);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.tab-pill {
+  font-size: 0.75rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.tab-pill--archived {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* 3. Multi-Photo Badges & Thumbnails (Challenge #9) */
+.badge-multi-photo {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(14, 18, 23, 0.78);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  z-index: 2;
+}
+
+.badge-archived-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #b91c1c;
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  z-index: 2;
+}
+
+.card--archived {
+  opacity: 0.88;
+  border: 1px dashed #ef4444 !important;
+}
+
+/* Multi-Photo Gallery in Detail View */
+.detail-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-main-img-wrap {
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0f151c;
+  border: 1px solid var(--line);
+}
+
+.gallery-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.gallery-thumb {
+  width: 68px;
+  height: 52px;
+  border-radius: 4px;
+  border: 2px solid var(--line);
+  background: #0f151c;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  opacity: 0.65;
+  transition: all 0.18s ease;
+}
+
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-thumb:hover {
+  opacity: 0.95;
+  border-color: var(--brass);
+}
+
+.gallery-thumb--active {
+  opacity: 1;
+  border-color: var(--brass);
+  box-shadow: 0 0 0 1px var(--brass);
+}
+
+/* Multi-Thumb Grid in Create/Edit Forms */
+.multi-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.multi-thumb-card {
+  position: relative;
+  aspect-ratio: 4/3;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0f151c;
+}
+
+.multi-thumb-card--primary {
+  border: 2px solid var(--brass);
+  box-shadow: 0 0 8px rgba(166, 124, 46, 0.3);
+}
+
+.multi-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.primary-pill {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: var(--brass);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.thumb-card-actions {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+}
+
+.btn-tiny {
+  padding: 2px 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 3px;
+  border: none;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-tiny:hover {
+  background: var(--brass);
+}
+
+.btn-tiny--danger:hover {
+  background: #dc2626;
+}
+
+/* 4. WhatsApp Button (Challenge #8) */
+.btn--wa {
+  background: #25d366 !important;
+  color: #ffffff !important;
+  border: none !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn--wa:hover {
+  background: #1eb857 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3);
+}
+
+.btn-wa-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #25d366;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.btn-wa-compact:hover {
+  background: #1eb857;
+}
+
+.card-foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+/* 5. Review Thumbs Up / Down Voting & Author CRUD (Challenge #7) */
+.review-vote-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.vote-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--steel);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vote-btn:hover {
+  border-color: var(--brass);
+  color: var(--ink);
+}
+
+.vote-btn--active {
+  background: rgba(166, 124, 46, 0.12);
+  border-color: var(--brass);
+  color: var(--brass);
+  font-weight: 700;
+}
+
+.review-author-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.icon-btn-subtle {
+  background: transparent;
+  border: none;
+  color: var(--steel);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.icon-btn-subtle:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.icon-btn-subtle--danger:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.review-edit-box {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px;
+}
+
+.review-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* 6. Profile Sections (Drafts, About, Contact - Challenge #5) */
+.profile-section-block {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.section-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.section-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-head-left h2 {
+  font-size: 1.35rem;
+  margin: 0;
+}
+
+.count-pill {
+  padding: 3px 10px;
+  background: var(--line);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Draft cards */
+.draft-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.draft-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.draft-card-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--brass);
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.draft-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+
+.draft-time {
+  font-size: 0.8rem;
+  color: var(--steel);
+}
+
+.draft-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn--danger-outline {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.btn--danger-outline:hover {
+  background: #fee2e2 !important;
+}
+
+.empty-subbox {
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--steel);
+}
+
+.empty-subbox p {
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  color: var(--ink);
+}
+
+.subtext {
+  font-size: 0.84rem;
+  color: var(--steel);
+}
+
+/* About & Contact Cards */
+.about-content-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.about-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.about-feature-item strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+
+.about-feature-item p {
+  font-size: 0.86rem;
+  color: var(--steel);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.contact-content-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.contact-item {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  display: flex;
+  gap: 14px;
+}
+
+.contact-icon {
+  color: var(--brass);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.contact-item strong {
+  display: block;
+  font-size: 0.94rem;
+  margin-bottom: 4px;
+}
+
+.contact-item p {
+  font-size: 0.86rem;
+  color: var(--steel);
+  margin: 0;
+}
+
+/* Edit Profile Page Styles */
+.edit-profile-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding-bottom: 48px;
+}
+
+.card-style {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 28px;
+}
+
+.edit-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.avatar-hint {
+  font-size: 0.8rem;
+  color: var(--steel);
+}
+
+/* Suspense and Lazy Image helpers */
+.page-suspense-box {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--steel);
+}
+
+.lazy-img-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.card-toast {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #10b981;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.2s ease-out;
+  z-index: 10;
+}
+
+.link-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--brass);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.link-edit-btn:hover {
+  text-decoration: underline;
+}
+
+.thumb-bar-gallery {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  max-width: 220px;
+}
